@@ -1,0 +1,9 @@
+*.csv
+*.fits
+*.gz
+*.dat
+*.yaml
+*.dat
+*.txt
+*.qdp
+*.DS_Store
