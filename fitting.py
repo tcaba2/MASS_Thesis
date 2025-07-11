@@ -28,15 +28,16 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
 MainSource = "NGC1068"
 MainSourceAn = "NGC1068_Fermi"
-Nsim = 5
+Nsim = 100
 exposures = [50]
-param_names = ["index", "amplitude", "lambda_"]
+param_names = ["index", "amplitude", "lambda_", "alpha"]
 
 spectral_model = ExpCutoffPowerLawSpectralModel(
     amplitude=6.35e-14 * u.Unit("cm-2 s-1 TeV-1"),
     index=2.3,
     lambda_=0.1 * u.Unit("TeV-1"),
     reference=1 * u.TeV,
+    alpha = 2
 )
 
 # === GEOMETRY & MODELS ===
@@ -55,6 +56,7 @@ spatial_model = PointSpatialModel(lon_0="40.669 deg", lat_0="-0.013 deg", frame=
 sky_model = SkyModel(spectral_model=spectral_model, spatial_model=spatial_model, name=MainSourceAn)
 sky_model.spatial_model.parameters["lon_0"].frozen = True
 sky_model.spatial_model.parameters["lat_0"].frozen = True
+sky_model.spectral_model.parameters["alpha"].frozen = False
 bkg_model = FoVBackgroundModel(dataset_name="my-dataset")
 models = Models([sky_model, bkg_model])
 
@@ -173,7 +175,7 @@ def plot_flux_and_model(best_idx, flux_points, model, ext):
 # === MAIN PIPELINE ===
 def main():
     for ext in exposures:
-        fit_all_simulations(ext)
+        #fit_all_simulations(ext)
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
         best_idx = get_best_matching_sim(result_table, Res_mean)
