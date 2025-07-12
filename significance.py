@@ -1,15 +1,15 @@
-""" This script calculates the average significance of several observations NGC 1068 using the CTAO """
+"""
+Calculate the average significance of multiple CTAO simulations of NGC 1068.
+"""
 
 # ------------------------------
 # IMPORTS
 # ------------------------------
 import os
 import glob
-import itertools
 from pathlib import Path
 
 import numpy as np
-
 import matplotlib.pyplot as plt
 
 import astropy.units as u
@@ -29,33 +29,43 @@ from gammapy.makers import (
 from gammapy.stats import WStatCountsStatistic
 
 # ------------------------------
-# CONFIG
+# CONFIGURATION
 # ------------------------------
-Nsim = 100
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
-EVENTS_DIR = "/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi/5sims/events/"
-IRF_PATH = "/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits"
+Nsim = 10
 LIVETIME = "50 hr"
-Model_type = "Fermi Catalogue Best Fit PL"
+MODEL_TYPE = "Fermi Catalogue Best Fit PL"
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
+EVENTS_DIR = BASE_PATH / f"{Nsim}sims/events/"
+IRF_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
+ALPHA = 0.083
 
 # ------------------------------
-# HELPERS
+# UTILITY FUNCTIONS
 # ------------------------------
-def save_figure(filename):       #routine for saving figures
-    path = BASE_PATH / filename      #saving paths
-    path.parent.mkdir(parents=True, exist_ok=True)  #create a directory
-    plt.savefig(path, dpi=300, bbox_inches='tight')     #dpi is the resolution
-    plt.clf()                #clear
+def print_info(message):
+    print(f"\033[96m {message} \033[0m")
+
+def save_figure(filename):
+    """Save and clear the current Matplotlib figure."""
+    path = BASE_PATH / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, dpi=300, bbox_inches='tight')
+    plt.clf()
     plt.close()
 
+def load_observations(events_dir, irf_path):
+    """Load observations from event files and attach IRFs."""
+    input_files = sorted(glob.glob(str(events_dir / "*.fits")))
+    datastore = DataStore.from_events_files(input_files, irfs_paths=irf_path)
+    datastore.hdu_table.write(BASE_PATH / "hdu-index.fits.gz", overwrite=True)
+    datastore.obs_table.write(BASE_PATH / "obs-index.fits.gz", overwrite=True)
+    return datastore.get_observations(obs_id=list(datastore.obs_table["OBS_ID"]))
+
 # ------------------------------
-# LOAD FILES AND OBSERVATIONS
+# LOAD OBSERVATIONS
 # ------------------------------
-input_files = glob.glob(os.path.join(EVENTS_DIR, '*.fits'))
-datastore = DataStore.from_events_files(sorted(input_files), irfs_paths=IRF_PATH)
-datastore.hdu_table.write(BASE_PATH / "hdu-index.fits.gz", overwrite=True)
-datastore.obs_table.write(BASE_PATH / "obs-index.fits.gz", overwrite=True)
-observations = datastore.get_observations(obs_id=list(datastore.obs_table['OBS_ID']))
+observations = load_observations(EVENTS_DIR, IRF_PATH)
+print_info(f"Loaded {len(observations)} observations.")
 
 # ------------------------------
 # GEOMETRY SETUP
@@ -66,10 +76,9 @@ on_region = CircleSkyRegion(center=TARGET_POSITION, radius=Angle(ON_REGION_RADIU
 
 MAP_WIDTH = 2.0 * u.deg
 MAP_BIN_SIZE = 0.02 * u.deg
-ENERGY_BOUNDS = [10 * u.GeV, 10 * u.TeV]
 N_ENERGY_BINS = 10
 N_TRUE_ENERGY_BINS = 13
-ALPHA = 0.083
+ENERGY_BOUNDS = [10 * u.GeV, 10 * u.TeV]
 
 n_pix = int((MAP_WIDTH / MAP_BIN_SIZE).decompose().value)
 geom_excl = WcsGeom.create(
@@ -95,19 +104,16 @@ geom = RegionGeom.create(region=on_region, axes=[energy_axis])
 dataset_empty = SpectrumDataset.create(geom=geom, energy_axis_true=energy_axis_true)
 
 # ------------------------------
-# DATASET MAKERS
+# DATASET CREATION
 # ------------------------------
 dataset_maker = SpectrumDatasetMaker(containment_correction=True, selection=["counts", "exposure", "edisp"])
 background_maker = ReflectedRegionsBackgroundMaker(exclusion_mask=exclusion_mask)
 safe_mask_maker = SafeMaskMaker(methods=["aeff-max"], aeff_percent=10, position=TARGET_POSITION)
 
-# ------------------------------
-# CREATE DATASETS
-# ------------------------------
 datasets = Datasets()
 counts_map = Map.create(skydir=TARGET_POSITION, width=3 * u.deg)
 
-for i, obs in enumerate(observations, 1):
+for i, obs in enumerate(observations, start=1):
     dataset = dataset_maker.run(dataset_empty.copy(name=str(obs.obs_id)), obs)
     counts_map.fill_events(obs.events)
     dataset = background_maker.run(dataset, obs)
@@ -115,7 +121,7 @@ for i, obs in enumerate(observations, 1):
     datasets.append(dataset)
 
     if i % 25 == 0 or i == len(observations):
-        print(f"Processed {i} out of {len(observations)} observations")
+        print_info(f"Processed {i} out of {len(observations)} observations.")
 
 # ------------------------------
 # SIGNIFICANCE ANALYSIS
@@ -124,33 +130,31 @@ sig_distrib = []
 
 for dataset in datasets:
     mask = dataset.mask_safe.quantity
-    on = dataset.counts.data[mask].sum()
-    off = dataset.counts_off.data[mask].sum()
-    stat = WStatCountsStatistic(n_on=on, n_off=off, alpha=ALPHA)
+    n_on = dataset.counts.data[mask].sum()
+    n_off = dataset.counts_off.data[mask].sum()
+    stat = WStatCountsStatistic(n_on=n_on, n_off=n_off, alpha=ALPHA)
     sig_distrib.append(stat.sqrt_ts)
 
 sig_distrib = np.array(sig_distrib)
-mean, std = sig_distrib.mean(), sig_distrib.std()
+mean_sig, std_sig = sig_distrib.mean(), sig_distrib.std()
 
 # ------------------------------
-# PLOTTING
+# PLOTTING RESULTS
 # ------------------------------
 plt.figure()
 plt.hist(sig_distrib, bins=10, edgecolor="black")
-plt.axvline(mean, color="red", label="Mean")
-plt.axvline(mean + 2 * std, color="red", linestyle="--", label="±2σ")
-plt.axvline(mean - 2 * std, color="red", linestyle="--")
+plt.axvline(mean_sig, color="red", label="Mean")
+plt.axvline(mean_sig + 2 * std_sig, color="red", linestyle="--", label="±2σ")
+plt.axvline(mean_sig - 2 * std_sig, color="red", linestyle="--")
 
 plt.xlabel(r"Significance (in $\sigma$)")
 plt.ylabel("Counts")
-plt.title(f"NGC 1068 Significance Distribution ({Model_type}, {LIVETIME}, {Nsim} sims)")
+plt.title(f"NGC 1068 Significance Distribution ({MODEL_TYPE}, {LIVETIME}, {Nsim} sims)")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
 
-safe_model = Model_type.replace(" ", "_")
-safe_livetime = LIVETIME.replace(" ", "_")
-filename = f"{safe_model}_{safe_livetime}_{Nsim}_significance.png"
+filename = f"{MODEL_TYPE.replace(' ', '_')}_{LIVETIME.replace(' ', '_')}_{Nsim}_significance.png"
 save_figure(filename)
 
-print(f"Significance : {mean:.2f} +/- {std:.2f}")
+print_info(f"Mean Significance: {mean_sig:.2f} ± {std_sig:.2f}")

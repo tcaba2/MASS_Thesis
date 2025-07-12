@@ -19,7 +19,7 @@ from gammapy.modeling.models import (
     ExpCutoffPowerLawSpectralModel,
     PointSpatialModel,
 )
-from gammapy.estimators import FluxPointsEstimator, FluxPoints
+from gammapy.estimators import FluxPointsEstimator
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -71,7 +71,7 @@ def gaussian(x, norm, mean, sigma):
     return norm * np.exp(-0.5 * ((x - mean) / sigma) ** 2)
 
 def fit_all_simulations(ext):
-    print(f"\033[96m\n--- Fitting for {ext} hr exposure --- \033[0m")
+    print(f"\n--- Fitting for {ext} hr exposure ---")
     for i in range(Nsim):
         dataset = MapDataset.read(BASE_PATH / f'dataset_{MainSource}_{ext}hr.fits')
         dataset.models = copy.deepcopy(models)
@@ -87,7 +87,7 @@ def fit_all_simulations(ext):
         dataset.models.write(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{i}.yaml", overwrite=True)
 
 def collect_fit_parameters(ext):
-    print(f"\033[96m\n--- Collecting best-fit parameters for {ext} hr --- \033[0m")
+    print(f"\n--- Collecting best-fit parameters for {ext} hr ---")
     result_dir = BASE_PATH / f"{Nsim}sims/best-fit"
     rows = []
 
@@ -118,76 +118,47 @@ def plot_histograms(result_table, ext):
         axs[1].set_title(f"Gaussian Fit: {name}")
         save_figure(f"{Nsim}sims/{MainSource}_{name}_{ext}hr_hist.png")
 
-    for name, val in zip(param_names, Res_mean):
-        print(f"{name:>15}: {float(val):.4g}")
-
-    print("\nStandard Deviations:")
-    for name, val in zip(param_names, Res_sigma):
-        print(f"{name:>15}: {float(val):.4g}")
-
+    print("Mean values:", Res_mean)
+    print("Standard deviations:", Res_sigma)
     return Res_mean, Res_sigma
 
-def average_flux_points(ext, Res_mean, Res_sigma):
-    print(f"\033[96m\n--- Computing averaged flux points for {ext} hr ---\033[0m")
+def get_best_matching_sim(result_table, Res_mean):
+    distances = np.sqrt(sum((result_table[p] - m) ** 2 for p, m in zip(param_names, Res_mean)))
+    best_idx = int(np.argmin(distances))
+    print(f"\n>>> Best matching simulation index: {best_idx}")
+    return best_idx
 
-    flux_tables = []
-    for i in range(Nsim):
-        events = EventList.read(BASE_PATH / f"{Nsim}sims/events/{MainSource}_{ext}hr_events_{i}.fits")
-        counts = Map.from_geom(WCS_GEOM)
-        counts.fill_events(events)
+def compute_flux_points(best_idx, Res_mean, Res_sigma, ext):
+    events_best = EventList.read(BASE_PATH / f"{Nsim}sims/events/{MainSource}_{ext}hr_events_{best_idx}.fits")
+    counts_best = Map.from_geom(WCS_GEOM)
+    counts_best.fill_events(events_best)
 
-        dataset = MapDataset.read(BASE_PATH / f'dataset_{MainSource}_{ext}hr.fits')
-        dataset.counts = counts
-        model = Models.read(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{i}.yaml")
-        dataset.models = model
+    dataset_best = MapDataset.read(BASE_PATH / f'dataset_{MainSource}_{ext}hr.fits')
+    dataset_best.counts = counts_best
+    model_best = Models.read(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{best_idx}.yaml")
+    print(model_best)
 
-        fpe = FluxPointsEstimator(
-            energy_edges=e_edges,
-            source=MainSourceAn,
-            selection_optional="all",
-            n_sigma=1,
-            n_sigma_ul=3,
-            n_jobs=1,
-        )
-        flux_points = fpe.run(datasets=dataset)
-        flux_tables.append(flux_points.to_table(sed_type="dnde", formatted=False))
-
-    n_bins = len(flux_tables[0])
-    avg_table = flux_tables[0].copy()
-
-    for i in range(n_bins):
-        dndes = np.array([t["dnde"][i] for t in flux_tables])
-        ts_vals = np.array([t["ts"][i] for t in flux_tables])
-        uls = np.array([t["dnde_ul"][i] for t in flux_tables])
-
-        ts_mean = np.nanmean(ts_vals)
-
-        if ts_mean > 9:
-            avg_table["dnde"][i] = np.nanmean(dndes)
-            std = np.nanstd(dndes)
-            avg_table["dnde_errn"][i] = std
-            avg_table["dnde_errp"][i] = std
-            avg_table["is_ul"][i] = False
-            avg_table["dnde_ul"][i] = np.nan
-        else:
-            avg_table["dnde_ul"][i] = np.nanpercentile(dndes, 95)
-            avg_table["dnde"][i] = np.nan
-            avg_table["dnde_errn"][i] = np.nan
-            avg_table["dnde_errp"][i] = np.nan
-            avg_table["is_ul"][i] = True
-
-    model = Models.read(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{1}.yaml") 
+    dataset_best.models = model_best
     for pname, mean, sigma in zip(param_names, Res_mean, Res_sigma):
-        param = getattr(model[0].spectral_model, pname)
+        param = getattr(dataset_best.models[0].spectral_model, pname)
         param.value = mean
-        param.error = sigma 
-    
-    final_flux = FluxPoints.from_table(table=avg_table, reference_model=sky_model)
-    final_flux.write(BASE_PATH / f"{Nsim}sims/avg_flux_points_{ext}hr.fits", overwrite=True)
-    return final_flux
+        param.error = sigma
 
-def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
-    dataset_original = Models.read(BASE_PATH / f"{MainSourceAn}.yaml")
+    fpe = FluxPointsEstimator(
+        energy_edges=e_edges,
+        source=MainSourceAn,
+        selection_optional="all",
+        n_sigma=1,
+        n_sigma_ul=3,
+        n_jobs=7,
+    )
+    flux_points = fpe.run(datasets=dataset_best)
+    flux_points.sqrt_ts_threshold_ul = 3
+    flux_points.to_table(sed_type="dnde", formatted=True)
+    return flux_points, dataset_best.models
+
+def plot_flux_and_model(best_idx, flux_points, model, ext):
+    dataset_original = Models.read(BASE_PATH / f"./{MainSourceAn}.yaml")
     ax = dataset_original[0].spectral_model.plot(
         energy_bounds=[e_min, e_max] * u.TeV,
         sed_type="e2dnde",
@@ -195,26 +166,21 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
         color="black"
     )
 
-    model = Models.read(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{1}.yaml") 
-    for pname, mean, sigma in zip(param_names, Res_mean, Res_sigma):
-        param = getattr(model[0].spectral_model, pname)
-        param.value = mean
-        param.error = sigma  
-
     fp_dataset = FluxPointsDataset(data=flux_points, models=model[0])
     fp_dataset.plot_spectrum(ax=ax, kwargs_fp={"color": "red", "marker": "o"}, kwargs_model={"color": "blue"})
     ax.legend()
-    save_figure(f"{Nsim}sims/{MainSource}_avg_flux_points_{ext}hr.png")
+    save_figure(f"{MainSource}_flux_points_{ext}hr.png")
     print(fp_dataset)
 
 # === MAIN PIPELINE ===
 def main():
     for ext in exposures:
-        fit_all_simulations(ext)
+        #fit_all_simulations(ext)
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
-        flux_points = average_flux_points(ext, Res_mean, Res_sigma)
-        plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma)
+        best_idx = get_best_matching_sim(result_table, Res_mean)
+        flux_points, model = compute_flux_points(best_idx, Res_mean, Res_sigma, ext)
+        plot_flux_and_model(best_idx, flux_points, model, ext)
 
 if __name__ == "__main__":
     main()
