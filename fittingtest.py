@@ -71,7 +71,7 @@ def gaussian(x, norm, mean, sigma):
     return norm * np.exp(-0.5 * ((x - mean) / sigma) ** 2)
 
 def fit_all_simulations(ext):
-    print(f"\n--- Fitting for {ext} hr exposure ---")
+    print(f"\033[96m\n--- Fitting for {ext} hr exposure --- \033[0m")
     for i in range(Nsim):
         dataset = MapDataset.read(BASE_PATH / f'dataset_{MainSource}_{ext}hr.fits')
         dataset.models = copy.deepcopy(models)
@@ -87,7 +87,7 @@ def fit_all_simulations(ext):
         dataset.models.write(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{i}.yaml", overwrite=True)
 
 def collect_fit_parameters(ext):
-    print(f"\n--- Collecting best-fit parameters for {ext} hr ---")
+    print(f"\033[96m\n--- Collecting best-fit parameters for {ext} hr --- \033[0m")
     result_dir = BASE_PATH / f"{Nsim}sims/best-fit"
     rows = []
 
@@ -118,12 +118,17 @@ def plot_histograms(result_table, ext):
         axs[1].set_title(f"Gaussian Fit: {name}")
         save_figure(f"{Nsim}sims/{MainSource}_{name}_{ext}hr_hist.png")
 
-    print("Mean values:", Res_mean)
-    print("Standard deviations:", Res_sigma)
+    for name, val in zip(param_names, Res_mean):
+        print(f"{name:>15}: {float(val):.4g}")
+
+    print("\nStandard Deviations:")
+    for name, val in zip(param_names, Res_sigma):
+        print(f"{name:>15}: {float(val):.4g}")
+
     return Res_mean, Res_sigma
 
 def average_flux_points(ext, Res_mean, Res_sigma):
-    print(f"\n--- Computing averaged flux points for {ext} hr ---")
+    print(f"\033[96m\n--- Computing averaged flux points for {ext} hr ---\033[0m")
 
     flux_tables = []
     for i in range(Nsim):
@@ -195,8 +200,6 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
         param = getattr(model[0].spectral_model, pname)
         param.value = mean
         param.error = sigma  
-
-    print(model)  
 
     fp_dataset = FluxPointsDataset(data=flux_points, models=model[0])
     fp_dataset.plot_spectrum(ax=ax, kwargs_fp={"color": "red", "marker": "o"}, kwargs_model={"color": "blue"})
