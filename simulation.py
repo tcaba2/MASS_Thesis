@@ -38,7 +38,7 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 # ========================== CONFIG ==========================
 
 BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
-Nsim = 100
+Nsim = 10
 LIVETIME = 50 * u.hr
 SOURCE_NAME_AN = "NGC1068_Fermi"
 IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
