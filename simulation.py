@@ -11,6 +11,7 @@ import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+from astropy.io import ascii
 
 from gammapy.utils.deprecation import GammapyDeprecationWarning
 from gammapy.data import Observation, observatory_locations
@@ -19,7 +20,7 @@ from gammapy.irf import load_irf_dict_from_file
 from gammapy.makers import MapDatasetMaker
 from gammapy.modeling.models import (
     Models, SkyModel, FoVBackgroundModel,
-    PointSpatialModel, EBLAbsorptionNormSpectralModel
+    PointSpatialModel, EBLAbsorptionNormSpectralModel, TemplateSpectralModel
 )
 from gammapy.datasets import MapDataset, MapDatasetEventSampler
 from gammapy.catalog import CATALOG_REGISTRY
@@ -28,21 +29,27 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 
 # ========================== Config ==========================
 
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
-Nsim = 10
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
+Nsim = 100
 LIVETIME = 50 * u.hr
-SOURCE_NAME_AN = "NGC1068_Fermi"
+SOURCE_NAME_AN = "NGC1068_Wind"
 IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
 
 # ------------------ Load Spectral Model ------------------
-# Use Fermi-LAT 4FGL source with EBL attenuation
-catalog = CATALOG_REGISTRY.get_cls("4fgl")()
-source = catalog["4FGL J0242.6-0000"]
-fermi_model = source.sky_model()
+data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind/Inoue_2022_wind.dat")
 
-redshift = 0.00379
-ebl_model = EBLAbsorptionNormSpectralModel.read_builtin("dominguez", redshift=redshift)
-spectral_model = fermi_model.spectral_model * ebl_model
+data['Frequency[Hz]'] = 10**data['logFrequency[Hz]'] 
+data['flux[ergcm^-2s^-1]'] = 10**data['logflux[ergcm^-2s^-1]']
+
+energy = data['Frequency[Hz]'] * u.Hz
+values = data['flux[ergcm^-2s^-1]'] *u.erg / (u.cm **2.0 * u.s)
+
+energy_MeV = energy.to(u.MeV, equivalencies=u.spectral())
+
+values = values.to(u.MeV / (u.cm ** 2.0 * u.s))
+values_MeV = values / energy_MeV**2  # divide by energy to get dN/dE
+
+spectral_model = TemplateSpectralModel(energy=energy_MeV, values=values_MeV)
 
 # ========================== Helper Functions ==========================
 def make_dirs(base_path: Path, nsim: int):
@@ -111,8 +118,8 @@ dataset = MapDataset.read(dataset_path, name="my-dataset")
 dataset.models = models
 
 # ------------------ Simulate Event Lists ------------------
+print(f"\033[96m Simulating observations \033[0m")
 for i in range(Nsim):
-    print(f"\033[96m Simulating observations \033[0m")
     
     obs = Observation.create(
         obs_id=i,

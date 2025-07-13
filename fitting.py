@@ -27,20 +27,20 @@ from gammapy.estimators import FluxPointsEstimator, FluxPoints
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # === CONFIGURATION ===
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
 MainSource = "NGC1068"
-MainSourceAn = "NGC1068_Fermi"
-Nsim = 10
+MainSourceAn = "NGC1068_Wind"
+Nsim = 100
 exposures = [50]
 param_names = ["index", "amplitude", "lambda_", "alpha"]
 
 # === MODEL SETUP ===
 spectral_model = ExpCutoffPowerLawSpectralModel(
-    amplitude=6.35e-14 * u.Unit("cm-2 s-1 TeV-1"),
-    index=2.3,
-    lambda_=0.1 * u.Unit("TeV-1"),
-    reference=1 * u.TeV,
-    alpha=2,
+    amplitude = 0.65e-12 * u.Unit("cm-2 s-1 TeV-1"),  
+    index = 1.86,  
+    lambda_ = 2.48 / u.TeV,  
+    reference = 1 * u.TeV, 
+    alpha = 2.50
 )
 
 center = SkyCoord.from_name(MainSource).icrs
@@ -223,7 +223,7 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
 # === MAIN ===
 def main():
     for ext in exposures:
-        #fit_all_simulations(ext)
+        fit_all_simulations(ext)
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
         flux_points = average_flux_points(ext, Res_mean, Res_sigma)
