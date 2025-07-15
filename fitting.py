@@ -1,46 +1,51 @@
-"""
-Pipeline for fitting, extracting, and plotting spectral parameters and flux points
-for simulated CTAO observations of NGC 1068.
-"""
-
 # === IMPORTS ===
+# Standard library 
+import copy
+import gc
+import warnings
+from pathlib import Path
+import os
+
+# Third-pary libraries 
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
-import copy
-import warnings
-
 from astropy.coordinates import SkyCoord
-import astropy.units as u
 from astropy.table import Table
+import astropy.units as u
 
+# Gammapy
 from gammapy.data import EventList
 from gammapy.datasets import MapDataset, FluxPointsDataset
-from gammapy.maps import MapAxis, WcsGeom, Map
+from gammapy.estimators import FluxPointsEstimator, FluxPoints
+from gammapy.maps import Map, MapAxis, WcsGeom
 from gammapy.modeling import Fit
 from gammapy.modeling.models import (
-    Models, SkyModel, FoVBackgroundModel, 
-    ExpCutoffPowerLawSpectralModel, PointSpatialModel
+    ExpCutoffPowerLawSpectralModel,
+    FoVBackgroundModel,
+    Models,
+    PointSpatialModel,
+    SkyModel,
+    BrokenPowerLawSpectralModel,
+    SuperExpCutoffPowerLaw3FGLSpectralModel,
 )
-from gammapy.estimators import FluxPointsEstimator, FluxPoints
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # === CONFIGURATION ===
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
 MainSource = "NGC1068"
-MainSourceAn = "NGC1068_Wind"
+MainSourceAn = "NGC1068_Fermi"
 Nsim = 100
 exposures = [50]
-param_names = ["index", "amplitude", "lambda_", "alpha"]
+param_names = ["index_1", "index_2", "amplitude", "ecut"]
 
 # === MODEL SETUP ===
-spectral_model = ExpCutoffPowerLawSpectralModel(
-    amplitude = 0.65e-12 * u.Unit("cm-2 s-1 TeV-1"),  
-    index = 1.86,  
-    lambda_ = 2.48 / u.TeV,  
-    reference = 1 * u.TeV, 
-    alpha = 2.50
+spectral_model = SuperExpCutoffPowerLaw3FGLSpectralModel(
+    index_1 = 2.3,
+    index_2 = 2,
+    amplitude = "0.7e-13 TeV-1 s-1 cm-2",
+    reference = "1 TeV",
+    ecut = "25 TeV",
 )
 
 center = SkyCoord.from_name(MainSource).icrs
@@ -54,10 +59,19 @@ spatial_model = PointSpatialModel(lon_0=center.ra, lat_0=center.dec, frame="icrs
 sky_model = SkyModel(spectral_model=spectral_model, spatial_model=spatial_model, name=MainSourceAn)
 sky_model.spatial_model.parameters["lon_0"].frozen = True
 sky_model.spatial_model.parameters["lat_0"].frozen = True
-sky_model.spectral_model.parameters["alpha"].frozen = False
+#sky_model.spectral_model.parameters["alpha"].frozen = False
 
 bkg_model = FoVBackgroundModel(dataset_name="my-dataset")
 models = Models([sky_model, bkg_model])
+
+# spectral_model.amplitude.min = 1e-14
+# spectral_model.amplitude.max = 1e-12
+# spectral_model.index.min = 1.5
+# spectral_model.index.max = 3.5
+# spectral_model.lambda_.min = 0.01
+# spectral_model.lambda_.max = 2
+# spectral_model.alpha.min = 0.5
+# spectral_model.alpha.max = 3.0
 
 # === ENERGY GRID ===
 e_min, e_max, e_bins = 0.1, 100.0, 10
@@ -81,7 +95,7 @@ def fit_all_simulations(ext):
     print_cyan(f"\n--- Fitting for {ext} hr exposure ---")
     for i in range(Nsim):
         dataset = MapDataset.read(BASE_PATH / f'dataset_{MainSource}_{ext}hr.fits')
-        dataset.models = copy.deepcopy(models)
+        dataset.models = models.copy()
 
         events = EventList.read(BASE_PATH / f"{Nsim}sims/events/{MainSourceAn}_{ext}hr_events_{i}.fits")
         counts = Map.from_geom(WCS_GEOM)
@@ -93,6 +107,9 @@ def fit_all_simulations(ext):
         _ = fit.run([dataset])
 
         dataset.models.write(BASE_PATH / f"{Nsim}sims/best-fit/{MainSource}_{ext}hr_best-fit_{i}.yaml", overwrite=True)
+
+        del dataset, events, counts, fit
+        gc.collect()
 
 # === PARAMETER COLLECTION ===
 def collect_fit_parameters(ext):
@@ -106,6 +123,8 @@ def collect_fit_parameters(ext):
         row = {f"{p.name}": p.value for p in spec.parameters}
         row.update({f"{p.name}_err": p.error for p in spec.parameters})
         rows.append(row)
+        del model
+        gc.collect()
 
     table = Table(rows)
     table.write(result_dir / f"{MainSource}_{ext}hr_results.fits", overwrite=True)
@@ -143,7 +162,9 @@ def plot_histograms(table, ext):
 # === FLUX POINT AVERAGING ===
 def average_flux_points(ext, Res_mean, Res_sigma):
     print_cyan(f"\n--- Computing averaged flux points for {ext} hr ---")
-    flux_tables = []
+
+    flux_dir = BASE_PATH / f"{Nsim}sims/spectra"
+    flux_dir.mkdir(parents=True, exist_ok=True)
 
     for i in range(Nsim):
         events = EventList.read(BASE_PATH / f"{Nsim}sims/events/{MainSourceAn}_{ext}hr_events_{i}.fits")
@@ -164,14 +185,25 @@ def average_flux_points(ext, Res_mean, Res_sigma):
             n_jobs=1,
         )
         flux_points = fpe.run(datasets=dataset)
-        flux_tables.append(flux_points.to_table(sed_type="dnde", formatted=False))
+        flux_points.write(flux_dir / f"{MainSource}_{ext}hr_fp_{i}.fits", overwrite=True)
+
+        del events, counts, dataset, model, flux_points
+        gc.collect()
+
+    # Aggregate saved flux point files
+    flux_tables = []
+    for i in range(Nsim):
+        fp = FluxPoints.read(flux_dir / f"{MainSource}_{ext}hr_fp_{i}.fits")
+        flux_tables.append(fp.to_table(sed_type="dnde", formatted=False))
+        del fp
+        gc.collect()
 
     n_bins = len(flux_tables[0])
     avg_table = flux_tables[0].copy()
 
     for i in range(n_bins):
-        dndes = np.array([t["dnde"][i] for t in flux_tables])
-        ts_vals = np.array([t["ts"][i] for t in flux_tables])
+        dndes = np.array([t["dnde"][i] for t in flux_tables], dtype=np.float32)
+        ts_vals = np.array([t["ts"][i] for t in flux_tables], dtype=np.float32)
         ts_mean = np.nanmean(ts_vals)
 
         if ts_mean > 9:
@@ -195,13 +227,14 @@ def average_flux_points(ext, Res_mean, Res_sigma):
         param.value = mean
         param.error = sigma
 
-    flux = FluxPoints.from_table(table=avg_table, reference_model=sky_model)
+    flux = FluxPoints.from_table(table=avg_table, reference_model=model[0])
     flux.write(BASE_PATH / f"{Nsim}sims/avg_flux_points_{ext}hr.fits", overwrite=True)
     return flux
 
 # === FINAL PLOT ===
 def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
-    ax = sky_model.spectral_model.plot(
+    dataset_original = Models.read(BASE_PATH / f"{MainSourceAn}.yaml")
+    ax = dataset_original[0].spectral_model.plot(
         energy_bounds=[e_min, e_max] * u.TeV,
         sed_type="e2dnde",
         label="Sim. model",
@@ -216,6 +249,8 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
 
     fp_dataset = FluxPointsDataset(data=flux_points, models=model[0])
     fp_dataset.plot_spectrum(ax=ax, kwargs_fp={"color": "red", "marker": "o"}, kwargs_model={"color": "blue"})
+    ax.set_ylim(1e-17, 5e-12)
+    #ax.set_xlim(0.01, 200)
     ax.legend()
     save_figure(f"{Nsim}sims/{MainSource}_avg_flux_points_{ext}hr.png")
     print(fp_dataset)
@@ -227,7 +262,13 @@ def main():
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
         flux_points = average_flux_points(ext, Res_mean, Res_sigma)
+        #flux_points = FluxPoints.read(BASE_PATH / f"{Nsim}sims/avg_flux_points_{ext}hr.fits")
         plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma)
+
+    # Add the notification here
+    os.system('osascript -e \'display notification "Python script done!" with title "VS Code"\'') 
+
+
 
 if __name__ == "__main__":
     main()
