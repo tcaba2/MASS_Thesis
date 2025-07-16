@@ -64,14 +64,14 @@ sky_model.spatial_model.parameters["lat_0"].frozen = True
 bkg_model = FoVBackgroundModel(dataset_name="my-dataset")
 models = Models([sky_model, bkg_model])
 
-# spectral_model.amplitude.min = 1e-14
-# spectral_model.amplitude.max = 1e-12
-# spectral_model.index.min = 1.5
-# spectral_model.index.max = 3.5
-# spectral_model.lambda_.min = 0.01
-# spectral_model.lambda_.max = 2
-# spectral_model.alpha.min = 0.5
-# spectral_model.alpha.max = 3.0
+spectral_model.amplitude.min = 1e-15
+spectral_model.amplitude.max = 1e-12
+spectral_model.index_1.min = 1.5
+spectral_model.index_1.max = 3.5
+spectral_model.index_2.min = 0.5
+spectral_model.index_2.max = 5
+spectral_model.ecut.min = 5
+spectral_model.ecut.max = 100
 
 # === ENERGY GRID ===
 e_min, e_max, e_bins = 0.1, 100.0, 10
