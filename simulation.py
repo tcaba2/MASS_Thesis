@@ -31,23 +31,20 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 
 # ========================== Config ==========================
 
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Eichmann_starburst")
 Nsim = 100
-LIVETIME = 100 * u.hr
-SOURCE_NAME_AN = "NGC1068_Wind"
+LIVETIME = 50 * u.hr
+SOURCE_NAME_AN = "NGC1068_Eichmann"
 IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
 
 # ------------------ Load Spectral Model ------------------
-# Template spectral model. Defined by custom tabular values from Inoue+ 2022
-data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind/Inoue_2022_wind.dat")
+# Template spectral model. Defined by values from Eichmann+ 2022
+data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Eichmann_starburst/Eichmann_starburst.csv")
 
-data['Frequency[Hz]'] = 10**data['logFrequency[Hz]'] 
-data['flux[ergcm^-2s^-1]'] = 10**data['logflux[ergcm^-2s^-1]']
+energy = data['x'] *u.GeV
+values = data['y'] *u.eV / (u.cm **2.0 * u.s)
 
-energy = data['Frequency[Hz]'] * u.Hz
-values = data['flux[ergcm^-2s^-1]'] *u.erg / (u.cm **2.0 * u.s)
-
-energy_MeV = energy.to(u.MeV, equivalencies=u.spectral())
+energy_MeV = energy.to(u.MeV)
 
 values = values.to(u.MeV / (u.cm ** 2.0 * u.s))
 values_MeV = values / energy_MeV**2  # divide by energy to get dN/dE

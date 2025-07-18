@@ -32,20 +32,20 @@ from gammapy.modeling.models import (
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # === CONFIGURATION ===
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Kornecki_starburst")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
 MainSource = "NGC1068"
-MainSourceAn = "NGC1068_Kornecki"
+MainSourceAn = "NGC1068_Wind"
 Nsim = 100
 exposures = [100]
 param_names = ["index_1", "index_2", "amplitude", "ecut"]
 
 # === MODEL SETUP ===
 spectral_model = SuperExpCutoffPowerLaw3FGLSpectralModel(
-    index_1 = 2.2,
+    index_1 = 2,
     index_2 = 2,
-    amplitude = "1.7e-13 TeV-1 s-1 cm-2",
+    amplitude = "1e-14 TeV-1 s-1 cm-2",
     reference = "1 TeV",
-    ecut = "25 TeV",
+    ecut = "0.5 TeV",
 )
 
 center = SkyCoord.from_name(MainSource).icrs
@@ -70,7 +70,7 @@ spectral_model.index_1.min = 1
 spectral_model.index_1.max = 3.5
 spectral_model.index_2.min = 0.5
 spectral_model.index_2.max = 5
-spectral_model.ecut.min = 1
+spectral_model.ecut.min = 0.1
 spectral_model.ecut.max = 100
 
 # === ENERGY GRID ===
@@ -258,7 +258,7 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
 # === MAIN ===
 def main():
     for ext in exposures:
-        #fit_all_simulations(ext)
+        fit_all_simulations(ext)
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
         flux_points = average_flux_points(ext, Res_mean, Res_sigma)
