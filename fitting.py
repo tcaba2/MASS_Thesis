@@ -32,18 +32,18 @@ from gammapy.modeling.models import (
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # === CONFIGURATION ===
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Kornecki_starburst")
 MainSource = "NGC1068"
-MainSourceAn = "NGC1068_Fermi"
+MainSourceAn = "NGC1068_Kornecki"
 Nsim = 100
-exposures = [50]
+exposures = [100]
 param_names = ["index_1", "index_2", "amplitude", "ecut"]
 
 # === MODEL SETUP ===
 spectral_model = SuperExpCutoffPowerLaw3FGLSpectralModel(
-    index_1 = 2.3,
+    index_1 = 2.2,
     index_2 = 2,
-    amplitude = "0.7e-13 TeV-1 s-1 cm-2",
+    amplitude = "1.7e-13 TeV-1 s-1 cm-2",
     reference = "1 TeV",
     ecut = "25 TeV",
 )
@@ -64,13 +64,13 @@ sky_model.spatial_model.parameters["lat_0"].frozen = True
 bkg_model = FoVBackgroundModel(dataset_name="my-dataset")
 models = Models([sky_model, bkg_model])
 
-spectral_model.amplitude.min = 1e-15
-spectral_model.amplitude.max = 1e-12
-spectral_model.index_1.min = 1.5
+spectral_model.amplitude.min = 1e-17
+spectral_model.amplitude.max = 1e-11
+spectral_model.index_1.min = 1
 spectral_model.index_1.max = 3.5
 spectral_model.index_2.min = 0.5
 spectral_model.index_2.max = 5
-spectral_model.ecut.min = 5
+spectral_model.ecut.min = 1
 spectral_model.ecut.max = 100
 
 # === ENERGY GRID ===
@@ -258,7 +258,7 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
 # === MAIN ===
 def main():
     for ext in exposures:
-        fit_all_simulations(ext)
+        #fit_all_simulations(ext)
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
         flux_points = average_flux_points(ext, Res_mean, Res_sigma)

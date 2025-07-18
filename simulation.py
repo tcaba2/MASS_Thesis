@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import warnings
 
+from math import pi
+
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -29,26 +31,28 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 
 # ========================== Config ==========================
 
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
 Nsim = 100
-LIVETIME = 50 * u.hr
-SOURCE_NAME_AN = "NGC1068_Fermi"
+LIVETIME = 100 * u.hr
+SOURCE_NAME_AN = "NGC1068_Wind"
 IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
 
 # ------------------ Load Spectral Model ------------------
-# Getting data from Fermi catalogs
-catalog_4fgl = CATALOG_REGISTRY.get_cls("4fgl")()
-source_4fgl = catalog_4fgl["4FGL J0242.6-0000"]          # NGC 1068
-fermi_model = source_4fgl.sky_model()
+# Template spectral model. Defined by custom tabular values from Inoue+ 2022
+data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind/Inoue_2022_wind.dat")
 
-# Specify the redshift of the source
-redshift = 0.00379
+data['Frequency[Hz]'] = 10**data['logFrequency[Hz]'] 
+data['flux[ergcm^-2s^-1]'] = 10**data['logflux[ergcm^-2s^-1]']
 
-# Load the EBL model. Here we use the model from Dominguez, 2011
-ebl = EBLAbsorptionNormSpectralModel.read_builtin("dominguez", redshift=redshift)
+energy = data['Frequency[Hz]'] * u.Hz
+values = data['flux[ergcm^-2s^-1]'] *u.erg / (u.cm **2.0 * u.s)
 
-# The Fermi model is multiplied by the EBL to get the final model
-spectral_model = fermi_model.spectral_model * ebl
+energy_MeV = energy.to(u.MeV, equivalencies=u.spectral())
+
+values = values.to(u.MeV / (u.cm ** 2.0 * u.s))
+values_MeV = values / energy_MeV**2  # divide by energy to get dN/dE
+
+spectral_model = TemplateSpectralModel(energy=energy_MeV, values=values_MeV)
 
 # ========================== Helper Functions ==========================
 def make_dirs(base_path: Path, nsim: int):
