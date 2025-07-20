@@ -31,10 +31,10 @@ from gammapy.stats import WStatCountsStatistic
 # ------------------------------
 # CONFIGURATION
 # ------------------------------
-Nsim = 10
-LIVETIME = "50 hr"
-MODEL_TYPE = "Fermi Catalogue Best Fit PL"
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
+Nsim = 100
+LIVETIME = "100 hr"
+MODEL_TYPE = "Peretti UFO Model"
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/UFO")
 EVENTS_DIR = BASE_PATH / f"{Nsim}sims/events/"
 IRF_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
 ALPHA = 0.083

@@ -31,18 +31,18 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 
 # ========================== Config ==========================
 
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Eichmann_starburst")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Kornecki_starburst")
 Nsim = 100
-LIVETIME = 50 * u.hr
-SOURCE_NAME_AN = "NGC1068_Eichmann"
+LIVETIME = 150 * u.hr
+SOURCE_NAME_AN = "NGC1068_Kornecki"
 IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
 
 # ------------------ Load Spectral Model ------------------
-# Template spectral model. Defined by values from Eichmann+ 2022
-data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Eichmann_starburst/Eichmann_starburst.csv")
+# Template spectral model. Defined by values from Kornechi+ 2025
+data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Kornecki_starburst/Kornecki_Starburst.csv")
 
-energy = data['x'] *u.GeV
-values = data['y'] *u.eV / (u.cm **2.0 * u.s)
+energy = data['x'] *u.TeV
+values = data['y'] *u.erg / (u.cm **2.0 * u.s)
 
 energy_MeV = energy.to(u.MeV)
 

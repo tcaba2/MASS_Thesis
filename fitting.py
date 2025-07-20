@@ -32,20 +32,21 @@ from gammapy.modeling.models import (
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # === CONFIGURATION ===
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Wind")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/UFO")
 MainSource = "NGC1068"
-MainSourceAn = "NGC1068_Wind"
+MainSourceAn = "NGC1068_UFO"
 Nsim = 100
 exposures = [100]
 param_names = ["index_1", "index_2", "amplitude", "ecut"]
 
 # === MODEL SETUP ===
+
 spectral_model = SuperExpCutoffPowerLaw3FGLSpectralModel(
-    index_1 = 2,
-    index_2 = 2,
-    amplitude = "1e-14 TeV-1 s-1 cm-2",
+    index_1 = 2.2,
+    index_2 = 1,
+    amplitude = "3e-14 TeV-1 s-1 cm-2",
     reference = "1 TeV",
-    ecut = "0.5 TeV",
+    ecut = "8 TeV",
 )
 
 center = SkyCoord.from_name(MainSource).icrs
@@ -64,12 +65,12 @@ sky_model.spatial_model.parameters["lat_0"].frozen = True
 bkg_model = FoVBackgroundModel(dataset_name="my-dataset")
 models = Models([sky_model, bkg_model])
 
-spectral_model.amplitude.min = 1e-17
-spectral_model.amplitude.max = 1e-11
-spectral_model.index_1.min = 1
+spectral_model.index_1.min = 1.5
 spectral_model.index_1.max = 3.5
-spectral_model.index_2.min = 0.5
-spectral_model.index_2.max = 5
+spectral_model.index_2.min = 0.3
+spectral_model.index_2.max = 3
+spectral_model.amplitude.min = 1e-15
+spectral_model.amplitude.max = 1e-11
 spectral_model.ecut.min = 0.1
 spectral_model.ecut.max = 100
 
@@ -258,11 +259,11 @@ def plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma):
 # === MAIN ===
 def main():
     for ext in exposures:
-        fit_all_simulations(ext)
+        #fit_all_simulations(ext)
         result_table = collect_fit_parameters(ext)
         Res_mean, Res_sigma = plot_histograms(result_table, ext)
-        flux_points = average_flux_points(ext, Res_mean, Res_sigma)
-        #flux_points = FluxPoints.read(BASE_PATH / f"{Nsim}sims/avg_flux_points_{ext}hr.fits")
+        #flux_points = average_flux_points(ext, Res_mean, Res_sigma)
+        flux_points = FluxPoints.read(BASE_PATH / f"{Nsim}sims/avg_flux_points_{ext}hr.fits")
         plot_avg_flux_and_model(flux_points, ext, Res_mean, Res_sigma)
 
     # Add the notification here
