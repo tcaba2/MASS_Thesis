@@ -31,25 +31,39 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 
 # ========================== Config ==========================
 
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Kornecki_starburst")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/stacking_Fermi")
 Nsim = 100
 LIVETIME = 150 * u.hr
-SOURCE_NAME_AN = "NGC1068_Kornecki"
-IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
+SOURCE_NAME_AN = "NGC1068_Stacking"
+IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-LSTSubArray-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs.180000s-v0.1.fits")
 
 # ------------------ Load Spectral Model ------------------
-# Template spectral model. Defined by values from Kornechi+ 2025
-data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Kornecki_starburst/Kornecki_Starburst.csv")
+# Load data
+data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/stacking_Fermi/stacking.csv")
 
-energy = data['x'] *u.TeV
-values = data['y'] *u.erg / (u.cm **2.0 * u.s)
+# Convert columns to quantities
+energy = data['x'] * u.eV
+values = data['y'] * u.erg / u.s
 
-energy_MeV = energy.to(u.MeV)
+# Convert energy to MeV for consistency with Gammapy
+energy = energy.to(u.MeV)
 
-values = values.to(u.MeV / (u.cm ** 2.0 * u.s))
-values_MeV = values / energy_MeV**2  # divide by energy to get dN/dE
+# Sort data by energy
+sorted_indices = np.argsort(energy)
+energy = energy[sorted_indices]
+values = values[sorted_indices]
 
-spectral_model = TemplateSpectralModel(energy=energy_MeV, values=values_MeV)
+# Define distance and compute flux
+distance = 36.4 * u.Mpc
+distance_cm = distance.to(u.cm)
+flux = values / (4 * pi * distance_cm**2)
+
+# Convert flux to expected units and divide by E^2 to get dN/dE
+flux = flux.to(u.MeV / (u.cm ** 2 * u.s))
+flux = flux / energy**2
+
+# Create template model
+spectral_model = TemplateSpectralModel(energy=energy, values=flux)
 
 # ========================== Helper Functions ==========================
 def make_dirs(base_path: Path, nsim: int):
