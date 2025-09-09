@@ -33,10 +33,10 @@ from gammapy.stats import WStatCountsStatistic
 # ------------------------------
 Nsim = 100
 LIVETIME = "150 hr"
-MODEL_TYPE = "Stacked Fermi Spectrum"
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/stacking_Fermi")
+MODEL_TYPE = "Fermi Catalog Best Fit PL"
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
 EVENTS_DIR = BASE_PATH / f"{Nsim}sims/events/"
-IRF_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-LSTSubArray-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs.180000s-v0.1.fits")
+IRF_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/Prod5-North-40deg-AverageAz-4LSTs09MSTs.180000s-v0.1.fits")
 ALPHA = 0.083
 
 # ------------------------------

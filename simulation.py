@@ -31,39 +31,26 @@ warnings.filterwarnings("ignore", category=GammapyDeprecationWarning)
 
 # ========================== Config ==========================
 
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/stacking_Fermi")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
 Nsim = 100
 LIVETIME = 150 * u.hr
-SOURCE_NAME_AN = "NGC1068_Stacking"
+SOURCE_NAME_AN = "NGC1068_Fermi"
 IRF_FILENAME = Path("/Users/tharacaba/Desktop/Tesis_2/gammapy-datasets/1.3/cta-prod5-zenodo-fitsonly-v0/fits/CTA-Performance-prod5-v0.1-North-LSTSubArray-40deg.FITS/Prod5-North-40deg-AverageAz-4LSTs.180000s-v0.1.fits")
 
 # ------------------ Load Spectral Model ------------------
-# Load data
-data = ascii.read("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/stacking_Fermi/stacking.csv")
+# Getting data from Fermi catalogs
+catalog_4fgl = CATALOG_REGISTRY.get_cls("4fgl")()
+source_4fgl = catalog_4fgl["4FGL J0242.6-0000"]          # NGC 1068
+fermi_model = source_4fgl.sky_model()
 
-# Convert columns to quantities
-energy = data['x'] * u.eV
-values = data['y'] * u.erg / u.s
+# Specify the redshift of the source
+redshift = 0.00379
 
-# Convert energy to MeV for consistency with Gammapy
-energy = energy.to(u.MeV)
+# Load the EBL model. Here we use the model from Dominguez, 2011
+ebl = EBLAbsorptionNormSpectralModel.read_builtin("dominguez", redshift=redshift)
 
-# Sort data by energy
-sorted_indices = np.argsort(energy)
-energy = energy[sorted_indices]
-values = values[sorted_indices]
-
-# Define distance and compute flux
-distance = 36.4 * u.Mpc
-distance_cm = distance.to(u.cm)
-flux = values / (4 * pi * distance_cm**2)
-
-# Convert flux to expected units and divide by E^2 to get dN/dE
-flux = flux.to(u.MeV / (u.cm ** 2 * u.s))
-flux = flux / energy**2
-
-# Create template model
-spectral_model = TemplateSpectralModel(energy=energy, values=flux)
+# The Fermi model is multiplied by the EBL to get the final model
+spectral_model = fermi_model.spectral_model * ebl 
 
 # ========================== Helper Functions ==========================
 def make_dirs(base_path: Path, nsim: int):

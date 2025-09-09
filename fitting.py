@@ -32,21 +32,21 @@ from gammapy.modeling.models import (
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 # === CONFIGURATION ===
-BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/UFO")
+BASE_PATH = Path("/Users/tharacaba/Desktop/Tesis_2/MASS_Thesis/simulations/Fermi")
 MainSource = "NGC1068"
-MainSourceAn = "NGC1068_UFO"
+MainSourceAn = "NGC1068_Fermi"
 Nsim = 100
-exposures = [100]
+exposures = [150]
 param_names = ["index_1", "index_2", "amplitude", "ecut"]
 
 # === MODEL SETUP ===
 
 spectral_model = SuperExpCutoffPowerLaw3FGLSpectralModel(
-    index_1 = 2.2,
-    index_2 = 1,
-    amplitude = "3e-14 TeV-1 s-1 cm-2",
+    index_1 = 2.3,
+    index_2 = 2,
+    amplitude = "0.7e-13 TeV-1 s-1 cm-2",
     reference = "1 TeV",
-    ecut = "8 TeV",
+    ecut = "25 TeV",
 )
 
 center = SkyCoord.from_name(MainSource).icrs
@@ -60,7 +60,6 @@ spatial_model = PointSpatialModel(lon_0=center.ra, lat_0=center.dec, frame="icrs
 sky_model = SkyModel(spectral_model=spectral_model, spatial_model=spatial_model, name=MainSourceAn)
 sky_model.spatial_model.parameters["lon_0"].frozen = True
 sky_model.spatial_model.parameters["lat_0"].frozen = True
-#sky_model.spectral_model.parameters["alpha"].frozen = False
 
 bkg_model = FoVBackgroundModel(dataset_name="my-dataset")
 models = Models([sky_model, bkg_model])
